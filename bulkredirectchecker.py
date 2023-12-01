@@ -152,21 +152,19 @@ def check_redirects(urls, use_checkpoint):
 
     for i, url in enumerate(tqdm(urls, desc="Processing URLs"), start=1):
         print(f"Checking URL: {url}")  # print the URL being checked
+        result = {"url": url}  # initialize result with 'url' key
         try:
-            result = process_url(url, session)
-            results.append(result)
-
-            save_checkpoint(url, result)  # save checkpoint after processing each URL
-            elapsed_time = time.time() - start_time
-            estimated_total_time = elapsed_time * len(urls) / i
-            remaining_time = estimated_total_time - elapsed_time
-            logging.info(f'Processed {i} of {len(urls)} URLs. Estimated time remaining: {remaining_time:.2f} seconds.')
+            result.update(process_url(url, session))
         except requests.RequestException as e:
-            result = {"url": url, "error": str(e)}
+            result["error"] = str(e)
+        finally:
             results.append(result)
+            save_checkpoint(url, result)  # save checkpoint after processing each URL
 
-            save_checkpoint(url, result)  # save checkpoint even if there was an error
-            logging.error(f'Error processing URL {url}: {str(e)}')
+        elapsed_time = time.time() - start_time
+        estimated_total_time = elapsed_time * len(urls) / i
+        remaining_time = estimated_total_time - elapsed_time
+        logging.info(f'Processed {i} of {len(urls)} URLs. Estimated time remaining: {remaining_time:.2f} seconds.')
 
     return results
 
@@ -199,7 +197,40 @@ def read_urls_from_file(input_file):
                             break
     return sorted(urls, key=len)
 
+def create_redirect_key(result):
+    try:
+        initial_url = urlparse(result['redirect_chain'][0]['initial_url']) #['redirect_chain'][0]['initial_url']
+        final_url = urlparse(result.get('final_url', ''))
+        number_of_redirects = len(result.get('redirect_chain', []))
+        #if result['canonical_mismatch'] is true then canical status is CANONICAL_TRUE else CANONICAL_FALSE
+        canonical_status = 'CANONICAL_TRUE' if result['canonical_mismatch'] else 'CANONICAL_FALSE'
+    except Exception as e:
+        logging.error(f'Error creating redirect key: {e}')
+        return ''
+
+    redirect_details = []
+    for i in range(7):
+        try:
+            if i < number_of_redirects:
+                redirect_status_code = result['redirect_chain'][i].get('redirect_status_code', '')
+                redirect_type = result['redirect_chain'][i].get('redirect_type', '').replace(' ', '_')
+                redirect_details.append(f"{redirect_status_code}-{redirect_type}-")
+            else:
+                redirect_details.append('')
+        except Exception as e:
+            logging.error(f'Error creating redirect details: {e}')
+            redirect_details.append('')
+
+    try:
+        redirect_key = f"{initial_url.scheme}://{initial_url.netloc}-{final_url.scheme}://{final_url.netloc}-{number_of_redirects}-{'-'.join(redirect_details)}-{canonical_status}"
+    except Exception as e:
+        logging.error(f'Error creating redirect key: {e}')
+        return ''
+
+    return redirect_key
+
 CSV_CONFIG = [
+    {"header": "Redirect Key", "value": create_redirect_key},
     {"header": "Initial URL", "value": lambda result: result['redirect_chain'][0]['initial_url'] if result['redirect_chain'] else ''},
     {"header": "Is Redirect", "value": lambda result: 'TRUE' if result['number_of_redirects'] > 0 else 'FALSE'},
     {"header": "Redirect Chain", "value": lambda result: 'TRUE' if len(result['redirect_chain']) > 1 else 'FALSE'},
@@ -227,10 +258,14 @@ def create_header():
     return [field["header"] for field in CSV_CONFIG]
 
 def create_csv_row(result):
-    try:
-        return [field["value"](result) for field in CSV_CONFIG]
-    except KeyError:
-        return ['' for field in CSV_CONFIG]
+    row = []
+    for field in CSV_CONFIG:
+        try:
+            row.append(field["value"](result))
+        except Exception as e:
+            logging.error(f'Error creating CSV row: {e}')
+            row.append('')
+    return row
 
 def write_results_to_file(output_file, redirect_results):
     with open(output_file, mode='w', newline='', encoding='utf-8') as file:
@@ -250,22 +285,33 @@ def main():
     urls = read_urls_from_file(args.input_file)
 
     # Load checkpoints and remove processed URLs from the list if --checkpoint is specified
+    checkpoint_results = []
     if args.checkpoint:
-        processed_urls = {url for url, _ in load_checkpoint()}
+        processed_urls = set()
+        for url, result in load_checkpoint():
+            processed_urls.add(url)
+            checkpoint_results.append(result)
         urls = [url for url in urls if url not in processed_urls]
 
     results = check_redirects(urls, args.checkpoint)
 
+    # Combine checkpoint results with current run results
+    all_results = checkpoint_results + results
+
     # Remove duplicates from results
     seen_urls = set()
     unique_results = []
-    for result in results:
-        url = result['url']
-        if url not in seen_urls:
-            seen_urls.add(url)
-            unique_results.append(result)
+    for result in all_results:
+        try:
+            url = result['url']
+            if url not in seen_urls:
+                seen_urls.add(url)
+                unique_results.append(result)
+        except KeyError:
+            logging.error(f'Error: result dictionary does not contain url key: {result}')
 
     # Write results to output file
+    write_results_to_file(output_file, unique_results)
     write_results_to_file(output_file, unique_results)
 
 if __name__ == "__main__":
