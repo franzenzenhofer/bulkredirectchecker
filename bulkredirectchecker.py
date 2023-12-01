@@ -104,6 +104,9 @@ def process_url(url, session):
         response = session.head(url, allow_redirects=True)
     except (requests.TooManyRedirects, requests.ConnectionError, requests.Timeout,requests.RequestException) as e:
         return {"url": url, "error": str(e)}
+    
+    canonical_url = ''  # add this line
+
 
     redirect_chain = []
     prev_url = url
@@ -129,8 +132,10 @@ def process_url(url, session):
         soup = BeautifulSoup(final_response.text, 'html.parser')
         canonical_link = soup.find("link", {"rel": "canonical"})
         if canonical_link:
-            canonical_href = canonical_link.get("href", '')
-            canonical_mismatch = 'NO CANONICAL GIVEN' if canonical_href == '' else canonical_href != final_url
+            canonical_href = canonical_link.get("href", '').strip()  # trim whitespace
+            canonical_url = urlparse(canonical_href)._replace(fragment='').geturl()  # remove fragment
+            final_url_no_fragment = urlparse(final_url)._replace(fragment='').geturl()  # remove fragment from final_url
+            canonical_mismatch = 'NO CANONICAL GIVEN' if canonical_href == '' else canonical_url != final_url_no_fragment
         else:
             canonical_mismatch = 'NO CANONICAL GIVEN'
 
@@ -140,6 +145,7 @@ def process_url(url, session):
         "status_code": final_status_code,
         "content_type": content_type,
         "canonical_mismatch": canonical_mismatch,
+        "canonical_url": canonical_url,  # add this line
         "redirect_chain": redirect_chain
     }
 
@@ -250,6 +256,7 @@ CSV_CONFIG = [
         ]
     ],
     {"header": "Final Status Code", "value": lambda result: result['status_code']},
+    {"header": "Canonical URL", "value": lambda result: result['canonical_url']},
     {"header": "Content Type", "value": lambda result: result['content_type']},
     {"header": "Error", "value": lambda result: result['error'] if 'error' in result else ''}
 ]
