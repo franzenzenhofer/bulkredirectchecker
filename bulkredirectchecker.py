@@ -203,7 +203,7 @@ def create_redirect_key(result):
         final_url = urlparse(result.get('final_url', ''))
         number_of_redirects = len(result.get('redirect_chain', []))
         #if result['canonical_mismatch'] is true then canical status is CANONICAL_TRUE else CANONICAL_FALSE
-        canonical_status = 'CANONICAL_TRUE' if result['canonical_mismatch'] else 'CANONICAL_FALSE'
+        canonical_status = 'CANONICAL_AWAY' if result['canonical_mismatch'] else 'CANONICAL_OK'
     except Exception as e:
         logging.error(f'Error creating redirect key: {e}')
         return ''
