@@ -143,39 +143,32 @@ def process_url(url, session):
         "redirect_chain": redirect_chain
     }
 
-def check_redirects(urls, output_file, use_checkpoint):
+def check_redirects(urls, use_checkpoint):
     """Checks redirects for a list of URLs."""
     start_time = time.time()
 
-    with open(output_file, mode='w', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-        header = create_header()
-        writer.writerow(header)
+    session = requests.Session()
+    results = []
 
-        session = requests.Session()
+    for i, url in enumerate(tqdm(urls, desc="Processing URLs"), start=1):
+        print(f"Checking URL: {url}")  # print the URL being checked
+        try:
+            result = process_url(url, session)
+            results.append(result)
 
-        for i, url in enumerate(tqdm(urls, desc="Processing URLs"), start=1):
-            print(f"Checking URL: {url}")  # print the URL being checked
-            try:
-                result = process_url(url, session)
-                row = create_csv_row(result)
-                writer.writerow(row)
-                #if use_checkpoint:
-                save_checkpoint(url, result)  # save checkpoint after processing each URL
-                elapsed_time = time.time() - start_time
-                estimated_total_time = elapsed_time * len(urls) / i
-                remaining_time = estimated_total_time - elapsed_time
-                logging.info(f'Processed {i} of {len(urls)} URLs. Estimated time remaining: {remaining_time:.2f} seconds.')
-            except requests.RequestException as e:
-                result = {"url": url, "error": str(e)}
-                row = create_csv_row(result)
-                writer.writerow(row)
-                #if use_checkpoint:
-                save_checkpoint(url, result)  # save checkpoint even if there was an error
-                logging.error(f'Error processing URL {url}: {str(e)}')
+            save_checkpoint(url, result)  # save checkpoint after processing each URL
+            elapsed_time = time.time() - start_time
+            estimated_total_time = elapsed_time * len(urls) / i
+            remaining_time = estimated_total_time - elapsed_time
+            logging.info(f'Processed {i} of {len(urls)} URLs. Estimated time remaining: {remaining_time:.2f} seconds.')
+        except requests.RequestException as e:
+            result = {"url": url, "error": str(e)}
+            results.append(result)
 
-        if use_checkpoint and os.path.exists(CHECKPOINT_FILE) and i == len(urls):
-            os.remove(CHECKPOINT_FILE)  # delete checkpoint file when all URLs have been processed
+            save_checkpoint(url, result)  # save checkpoint even if there was an error
+            logging.error(f'Error processing URL {url}: {str(e)}')
+
+    return results
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Check redirects for a list of URLs.')
@@ -234,7 +227,10 @@ def create_header():
     return [field["header"] for field in CSV_CONFIG]
 
 def create_csv_row(result):
-    return [field["value"](result) for field in CSV_CONFIG]
+    try:
+        return [field["value"](result) for field in CSV_CONFIG]
+    except KeyError:
+        return ['' for field in CSV_CONFIG]
 
 def write_results_to_file(output_file, redirect_results):
     with open(output_file, mode='w', newline='', encoding='utf-8') as file:
@@ -258,7 +254,19 @@ def main():
         processed_urls = {url for url, _ in load_checkpoint()}
         urls = [url for url in urls if url not in processed_urls]
 
-    check_redirects(urls, output_file, args.checkpoint)
+    results = check_redirects(urls, args.checkpoint)
+
+    # Remove duplicates from results
+    seen_urls = set()
+    unique_results = []
+    for result in results:
+        url = result['url']
+        if url not in seen_urls:
+            seen_urls.add(url)
+            unique_results.append(result)
+
+    # Write results to output file
+    write_results_to_file(output_file, unique_results)
 
 if __name__ == "__main__":
     main()
