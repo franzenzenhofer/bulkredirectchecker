@@ -179,6 +179,33 @@ function createCanonicalNode(canonicalUrl, isCanonicalMismatch) {
     return canonicalNode;
 }
 
+function createParamsTable(redirectData) {
+    const table = document.createElement('table');
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+    table.style.marginTop = '120px';  // Add 40 pixels of whitespace before the table
+
+    for (let key in redirectData) {
+        const row = document.createElement('tr');
+
+        const keyCell = document.createElement('td');
+        keyCell.textContent = key;
+        keyCell.style.border = '1px solid black';
+        keyCell.style.padding = '5px';
+
+        const valueCell = document.createElement('td');
+        valueCell.textContent = redirectData[key];
+        valueCell.style.border = '1px solid black';
+        valueCell.style.padding = '5px';
+
+        row.appendChild(keyCell);
+        row.appendChild(valueCell);
+        table.appendChild(row);
+    }
+
+    return table;
+}
+
 function createRedirectChainWarning(isRedirect, numberOfRedirects) {
     if (stringToBoolean(isRedirect)) {
         const warning = document.createElement('div');
@@ -305,7 +332,12 @@ let params = new URLSearchParams(paramsString);
         function createFinalIsAmpNote(finalIsAmp) {
             if (stringToBoolean(finalIsAmp)) {
                 const note = document.createElement('p');
-                note.innerHTML = '⚡ Final URL is AMP';
+                note.innerHTML = '⚡ Final URL is AMP 😕';  // Add :/ emoji at the end of the message
+                note.style.backgroundColor = 'white';  // Set the background color to white
+                note.style.color = 'black';  // Set the text color to black
+                note.style.border = '8px solid orange';  // Set the border to orange
+                note.style.borderRadius = '10px';  // Round the corners
+                note.style.padding = '10px';  // Add some padding
                 return note;
             }
             return null;
@@ -330,8 +362,8 @@ let params = new URLSearchParams(paramsString);
             flowchart.appendChild(createTitle(redirectData['Redirect Key']));
 
 
-    const redirectChainWarning = createRedirectChainWarning(redirectData['Is Redirect'], redirectData['Number of Redirects']);
-    if (redirectChainWarning) {
+            if (stringToBoolean(redirectData['Redirect Chain'])) {
+        const redirectChainWarning = createRedirectChainWarning(redirectData['Redirect Chain'], redirectData['Number of Redirects']);
         flowchart.appendChild(redirectChainWarning);
     }
 
@@ -344,7 +376,10 @@ let params = new URLSearchParams(paramsString);
             flowchart.appendChild(createArrow('', '', true, false));
             flowchart.appendChild(createFinalNode(redirectData['Content Type'], finalRedirectedUrl, redirectData['Final Status Code']));
 
-  
+            const finalIsAmpNote = createFinalIsAmpNote(redirectData['Final is AMP']);
+            if (finalIsAmpNote) {
+                flowchart.appendChild(finalIsAmpNote);
+            }
 
             // Replace the arrow between the final URL and canonical URL
 const isCanonicalMismatch = stringToBoolean(redirectData['Canonical Mismatch']);
@@ -352,10 +387,7 @@ const canonicalArrow = createArrowWithLabel('', '', true, isCanonicalMismatch);
 flowchart.appendChild(canonicalArrow);
 
 
-            const finalIsAmpNote = createFinalIsAmpNote(redirectData['Final is AMP']);
-            if (finalIsAmpNote) {
-                flowchart.appendChild(finalIsAmpNote);
-            }
+
 
    // Create the canonical node with conditional red background
    const canonicalNode = createCanonicalNode(redirectData['Canonical URL'], isCanonicalMismatch);
@@ -366,6 +398,9 @@ flowchart.appendChild(canonicalNode);
             if (errorNode) {
                 flowchart.insertBefore(errorNode, flowchart.firstChild);
             }
+
+            const paramsTable = createParamsTable(redirectData);
+    flowchart.appendChild(paramsTable);
         }
 
         function getStatusCodeColor(statusCode) {
