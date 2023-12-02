@@ -179,6 +179,22 @@ function createCanonicalNode(canonicalUrl, isCanonicalMismatch) {
     return canonicalNode;
 }
 
+function createRedirectChainWarning(isRedirect, numberOfRedirects) {
+    if (stringToBoolean(isRedirect)) {
+        const warning = document.createElement('div');
+        warning.style.backgroundColor = 'white';
+        warning.style.color = 'black';
+        warning.style.padding = '10px';
+        warning.style.margin = '10px 0';
+        warning.style.border = '2px solid lightcoral';
+        warning.style.borderRadius = '5px';
+        warning.style.fontSize = '20px';
+        warning.style.textAlign = 'center';
+        warning.innerHTML = `⚠️ <strong>Redirect Chain Detected!</strong> Number of Redirects: ${numberOfRedirects}`;
+        return warning;
+    }
+    return null;
+}
 
         function stringToBoolean(str) {
             if (typeof str === 'boolean') {
@@ -312,6 +328,13 @@ let params = new URLSearchParams(paramsString);
             const flowchart = document.getElementById('flowchart');
 
             flowchart.appendChild(createTitle(redirectData['Redirect Key']));
+
+
+    const redirectChainWarning = createRedirectChainWarning(redirectData['Is Redirect'], redirectData['Number of Redirects']);
+    if (redirectChainWarning) {
+        flowchart.appendChild(redirectChainWarning);
+    }
+
             flowchart.appendChild(createAll301Note(redirectData['All 301']));
             flowchart.appendChild(createInitialNode(redirectData['Initial URL']));
 
