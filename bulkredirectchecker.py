@@ -11,6 +11,8 @@ import os
 from tqdm import tqdm
 import time
 import json
+from urllib.parse import urlencode
+import base64
 
 
 
@@ -129,13 +131,41 @@ def process_url(url, session):
             final_response = session.get(final_url)
         except (requests.TooManyRedirects, requests.ConnectionError, requests.Timeout) as e:
             return {"url": url, "error": str(e)}
+        
+        # Get canonical link from HTML
         soup = BeautifulSoup(final_response.text, 'html.parser')
-        canonical_link = soup.find("link", {"rel": "canonical"})
+        html_canonical_link = soup.find("link", {"rel": "canonical"})
+        if html_canonical_link:
+            html_canonical_link = html_canonical_link['href'].strip()
+        
+        # Get canonical link from HTTP header
+        http_link_header = final_response.headers.get('Link')
+        http_canonical_link = None
+
+        if http_link_header:
+            link_values = http_link_header.split(',')
+            for link_value in link_values:
+                if 'rel="canonical"' in link_value:
+                    http_canonical_link = link_value[link_value.find('<')+1:link_value.find('>')]
+                    break
+        # If canonical link is in HTML but not in HTTP header 
+        if html_canonical_link and not http_canonical_link:
+            canonical_link = html_canonical_link
+        # If canonical link is not in HTML but is in HTTP header
+        elif not html_canonical_link and http_canonical_link:
+            canonical_link = http_canonical_link
+        # If canonical link is in both HTML and HTTP header
+        elif html_canonical_link and http_canonical_link:
+            canonical_link = 'HTTP-HTML-CANONICAL-COLLISION'
+        # If canonical link is not in both HTML and HTTP header
+        else:
+            canonical_link = None
+
         if canonical_link:
-            canonical_href = canonical_link.get("href", '').strip()  # trim whitespace
-            canonical_url = urlparse(canonical_href)._replace(fragment='').geturl()  # remove fragment
+            canonical_link = canonical_link.strip()  # trim whitespace
+            canonical_url = urlparse(canonical_link)._replace(fragment='').geturl()  # remove fragment
             final_url_no_fragment = urlparse(final_url)._replace(fragment='').geturl()  # remove fragment from final_url
-            canonical_mismatch = 'NO CANONICAL GIVEN' if canonical_href == '' else canonical_url != final_url_no_fragment
+            canonical_mismatch = 'NO CANONICAL GIVEN' if canonical_link == '' else canonical_url != final_url_no_fragment
         else:
             canonical_mismatch = 'NO CANONICAL GIVEN'
 
@@ -235,6 +265,24 @@ def create_redirect_key(result):
 
     return redirect_key
 
+def create_url(result):
+    params = {}
+    for field in CSV_CONFIG:
+        if field["header"] != "Visualize Link":
+            try:
+                params[field["header"]] = field["value"](result)
+            except Exception as e:
+                logging.error(f'Error creating URL parameter for field "{field["header"]}": {e}')
+                params[field["header"]] = ''
+    try:
+        params_str = urlencode(params)
+        params_base64 = base64.b64encode(params_str.encode())
+        params_base64_str = params_base64.decode()
+        return f"https://bulkredirectchecker.franzai.com/#{params_base64_str}"
+    except Exception as e:
+        logging.error(f'Error creating Visualize Link: {e}')
+        return 'N/A'
+
 CSV_CONFIG = [
     {"header": "Redirect Key", "value": create_redirect_key},
     {"header": "Initial URL", "value": lambda result: result['redirect_chain'][0]['initial_url'] if result['redirect_chain'] else ''},
@@ -258,7 +306,9 @@ CSV_CONFIG = [
     {"header": "Final Status Code", "value": lambda result: result['status_code']},
     {"header": "Canonical URL", "value": lambda result: result['canonical_url']},
     {"header": "Content Type", "value": lambda result: result['content_type']},
-    {"header": "Error", "value": lambda result: result['error'] if 'error' in result else ''}
+    {"header": "Error", "value": lambda result: result['error'] if 'error' in result else ''},
+    {"header": "Visualize Link", "value": create_url}
+
 ]
 
 def create_header():
