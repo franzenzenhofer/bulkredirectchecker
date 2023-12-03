@@ -382,7 +382,9 @@ let params = new URLSearchParams(paramsString);
         flowchart.appendChild(redirectChainWarning);
     }
 
-            flowchart.appendChild(createAll301Note(redirectData['All 301']));
+    if (stringToBoolean(redirectData['Is Redirect'])) {
+    flowchart.appendChild(createAll301Note(redirectData['All 301']));
+}
             flowchart.appendChild(createInitialNode(redirectData['Initial URL']));
 
             const { nodes, finalRedirectedUrl } = createRedirectNodes(redirectData);

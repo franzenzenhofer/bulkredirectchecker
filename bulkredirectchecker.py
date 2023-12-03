@@ -96,26 +96,37 @@ def get_redirect_type(resp, url):
     
 session = requests.Session()
 
+headers = {
+    "User-Agent": "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/W.X.Y.Z Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+}
+
 def process_url(url, session):
-    # use the session object for requests
     try:
-        response = session.head(url, allow_redirects=True)
-    except (requests.TooManyRedirects, requests.ConnectionError, requests.Timeout,requests.RequestException) as e:
+        response = session.head(url, headers=headers, allow_redirects=True)
+    except (requests.TooManyRedirects, requests.ConnectionError, requests.Timeout, requests.RequestException) as e:
         return {"url": url, "error": str(e)}
     
-    canonical_url = ''  # add this line
-
-
     redirect_chain = []
     prev_url = url
-    for resp in response.history:
+    initial_url_is_200 = False
+    # If there are no redirects, handle the initial URL as the final URL
+    if not response.history:
+        initial_url_is_200 = True
         redirect_chain.append({
-            "initial_url": prev_url,
-            "redirected_url": resp.headers.get('Location'),
-            "redirect_type": get_redirect_type(resp, prev_url),
-            "redirect_status_code": resp.status_code
+            "initial_url": url,
+            "redirected_url": response.url,
+            "redirect_type": "No Redirect",
+            "redirect_status_code": response.status_code
         })
-        prev_url = resp.headers.get('Location')
+    else:
+        for resp in response.history:
+            redirect_chain.append({
+                "initial_url": prev_url,
+                "redirected_url": resp.headers.get('Location'),
+                "redirect_type": get_redirect_type(resp, prev_url),
+                "redirect_status_code": resp.status_code
+            })
+            prev_url = resp.headers.get('Location')
 
     final_url = response.url
     final_status_code = response.status_code
@@ -144,36 +155,30 @@ def process_url(url, session):
                 if 'rel="canonical"' in link_value:
                     http_canonical_link = link_value[link_value.find('<')+1:link_value.find('>')]
                     break
-        # If canonical link is in HTML but not in HTTP header 
-        if html_canonical_link and not http_canonical_link:
-            canonical_link = html_canonical_link
-        # If canonical link is not in HTML but is in HTTP header
-        elif not html_canonical_link and http_canonical_link:
-            canonical_link = http_canonical_link
-        # If canonical link is in both HTML and HTTP header
-        elif html_canonical_link and http_canonical_link:
-            canonical_link = 'HTTP-HTML-CANONICAL-COLLISION'
-        # If canonical link is not in both HTML and HTTP header
-        else:
-            canonical_link = None
-
-        if canonical_link:
-            canonical_link = canonical_link.strip()  # trim whitespace
-            canonical_url = urlparse(canonical_link)._replace(fragment='').geturl()  # remove fragment
+        
+        # Determine the canonical URL and if there is a mismatch
+        canonical_url = None
+        if html_canonical_link:
+            canonical_url = urlparse(html_canonical_link)._replace(fragment='').geturl()  # remove fragment
+        elif http_canonical_link:
+            canonical_url = urlparse(http_canonical_link)._replace(fragment='').geturl()  # remove fragment
+        
+        if canonical_url:
             final_url_no_fragment = urlparse(final_url)._replace(fragment='').geturl()  # remove fragment from final_url
-            canonical_mismatch = 'NO CANONICAL GIVEN' if canonical_link == '' else canonical_url != final_url_no_fragment
+            canonical_mismatch = canonical_url != final_url_no_fragment
         else:
             canonical_mismatch = 'NO CANONICAL GIVEN'
 
     return {
         "final_url": final_url,
-        "number_of_redirects": len(redirect_chain),
+        "number_of_redirects": len(redirect_chain) if not initial_url_is_200 else 0,
         "status_code": final_status_code,
         "content_type": content_type,
         "canonical_mismatch": canonical_mismatch,
-        "canonical_url": canonical_url,  # add this line
+        "canonical_url": canonical_url if canonical_url else '',
         "redirect_chain": redirect_chain
     }
+
 
 def check_redirects(urls, use_checkpoint):
     """Checks redirects for a list of URLs."""
