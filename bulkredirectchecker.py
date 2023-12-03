@@ -13,6 +13,7 @@ import time
 import json
 from urllib.parse import urlencode
 import base64
+import webbrowser
 
 
 
@@ -38,11 +39,6 @@ config = configparser.ConfigParser()
 if os.path.exists('config.ini'):
     config.read('config.ini')
 
-# Set up logging
-log_filename = 'redirect_checker.log'  # default log filename
-if config.has_section('Logging') and 'filename' in config['Logging']:
-    log_filename = config.get('Logging', 'filename')
-logging.basicConfig(filename=log_filename, level=logging.INFO)
 
 
 
@@ -205,10 +201,12 @@ def check_redirects(urls, use_checkpoint):
     return results
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='Check redirects for a list of URLs.')
-    parser.add_argument('input_file', help='The input file containing the list of URLs.')
+    parser = argparse.ArgumentParser(description='Check redirects for a URL.')
+    parser.add_argument('input_file', help='The input file containing the list of URLs.', nargs='?', default=None)
     parser.add_argument('-o', '--output_file', help='The output CSV file.', default=None)
     parser.add_argument('--checkpoint', action='store_true', help='Use checkpointing to resume from the last processed URL.')
+    parser.add_argument('-u', '--url', help='The URL to check.')
+    parser.add_argument('-l', '--log', action='store_true', help='Write a log file.')
     args = parser.parse_args()
     return args
 
@@ -335,13 +333,20 @@ def write_results_to_file(output_file, redirect_results):
             if initial_url:  # check if "Initial URL" field is not empty after trimming
                 writer.writerow(row)
 
-def main():
-    """Main function."""
+def process_args():
     args = parse_arguments()
     output_file = generate_output_filename(args)
-    urls = read_urls_from_file(args.input_file)
+    return args, output_file
 
-    # Load checkpoints and remove processed URLs from the list if --checkpoint is specified
+def get_urls(args):
+    urls = []
+    if args.url or args.ur:
+        urls.append(args.url)
+    else:
+        urls = read_urls_from_file(args.input_file)
+    return urls
+
+def load_checkpoints(args, urls):
     checkpoint_results = []
     if args.checkpoint:
         processed_urls = set()
@@ -349,13 +354,9 @@ def main():
             processed_urls.add(url)
             checkpoint_results.append(result)
         urls = [url for url in urls if url not in processed_urls]
+    return checkpoint_results, urls
 
-    results = check_redirects(urls, args.checkpoint)
-
-    # Combine checkpoint results with current run results
-    all_results = checkpoint_results + results
-
-    # Remove duplicates from results
+def remove_duplicates(all_results):
     seen_urls = set()
     unique_results = []
     for result in all_results:
@@ -366,10 +367,50 @@ def main():
                 unique_results.append(result)
         except KeyError:
             logging.error(f'Error: result dictionary does not contain url key: {result}')
+    return unique_results
 
-    # Write results to output file
-    write_results_to_file(output_file, unique_results)
-    write_results_to_file(output_file, unique_results)
+def redirect_to_result(args, unique_results):
+    if args.redirect or args.ur:
+        result = unique_results[0]  # get the first result
+        visualize_link = create_url(result)  # create the visualize link
+        print(f"Redirecting to: {visualize_link}")
+        webbrowser.open(visualize_link)  # open the visualize link in a web browser
+
+def delete_checkpoint_file():
+    if os.path.exists(CHECKPOINT_FILE):
+        os.remove(CHECKPOINT_FILE)
+
+#this functions reuses most of the funcitonality alreadu in the code, but just for one URL, do not duplicate functionality
+def check_redirect(url):
+    result = check_redirects([url], False)
+    return result[0]  # return the first result (there should only be one)
+
+
+
+def main():
+    """Main function."""
+    args = parse_arguments()
+
+    if args.log:
+        log_filename = 'redirect_checker.log'  # default log filename
+        if config.has_section('Logging') and 'filename' in config['Logging']:
+            log_filename = config.get('Logging', 'filename')
+        logging.basicConfig(filename=log_filename, level=logging.INFO)
+    
+    if args.url:
+        result = check_redirect(args.url)
+        visualize_link = create_url(result)  # create the visualize link
+        print(f"Redirecting to: {visualize_link}")
+        webbrowser.open(visualize_link)  # open the visualize link in a web browser
+    else:
+        output_file = generate_output_filename(args)
+        urls = read_urls_from_file(args.input_file)
+        checkpoint_results, urls = load_checkpoints(args, urls)
+        results = check_redirects(urls, args.checkpoint)
+        all_results = checkpoint_results + results
+        unique_results = remove_duplicates(all_results)
+        write_results_to_file(output_file, unique_results)
+        delete_checkpoint_file()
 
 if __name__ == "__main__":
     main()

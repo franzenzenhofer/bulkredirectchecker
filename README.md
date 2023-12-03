@@ -1,77 +1,91 @@
-# README.md for Bulk Redirect Checker
+# Bulk Redirect Checker README.md
 
-## About
-
-Welcome to Bulk Redirect Checker, the digital sleuth for your URL mysteries! Crafted with the finesse of a British spy and the precision of a Swiss watch, this Python command-line tool delves into the labyrinthine world of URL redirects. It's like Sherlock Holmes, but for the internet.
+## Introduction
+The Bulk Redirect Checker is a comprehensive Python tool designed for URL redirect analysis. It offers detailed insights into redirect chains, canonical mismatches, and more.
 
 ## Features
 
-- **Multifaceted Redirect Detection:** From the classic HTTP-to-HTTPS to the elusive WWW-to-Non-WWW, it uncovers all.
-- **Canonical Mismatch Unearthing:** Like finding a needle in a haystack, but more fun.
-- **Redirect Chain Chronicles:** It narrates the saga of your URL's journey with the gusto of a British historian.
-- **Checkpointing:** For when tea time calls mid-audit.
-- **Logging:** Because everyone loves a good paper trail.
+- **Diverse Redirect Detection:** Identifies a range of redirects, including HTTP to HTTPS, WWW to Non-WWW, and several others.
+- **Canonical URL Analysis:** Detects and reports canonical mismatches in URLs.
+- **Redirect Chain Mapping:** Traces the complete redirect chain of a URL.
+- **Checkpoint Functionality:** Allows processing to be paused and resumed, preventing data loss.
+- **Logging Capability:** Maintains detailed logs for analysis and debugging.
+- **Flowchart Visualization:** (In conjunction with `index.html`) Presents a graphical representation of redirect chains.
+- **Command Line Flexibility:** Supports various command-line options for versatile operations.
+- **Output Customization:** Generates detailed CSV reports of redirect analysis.
 
-## Installation (The British Butler Method)
+## Installation Instructions
 
-1. **Fetch Your Top Hat:**
-   
-   Begin by cloning the repository or downloading the source like a true gentleman or lady.
-
+1. Clone the Repository:
    ```bash
    git clone [repository-url]
    ```
-
-2. **Saunter to the Directory:**
-
-   Stroll through the file system to your newly cloned repository.
-
+2. Navigate to the Directory:
    ```bash
    cd path/to/bulkredirectchecker
    ```
-
-3. **Summon the Butler (a.k.a. Pip):**
-
-   Command pip to install the package globally in editable mode, with the nonchalance of ringing a bell.
-
+3. Install Dependencies:
    ```bash
    pip install -e .
    ```
 
-   This is the digital equivalent of "Jeeves, make this available everywhere, will you?"
+## Usage Guidelines
 
-4. **Ensure Everything is Tickety-Boo:**
+### Basic Usage
+Process a list of URLs from a CSV file and generate a CSV output file.
+```bash
+bulkredirectchecker input_file.csv -o output_file.csv
+```
 
-   Run the following to ensure that the installation is spiffing.
+### Single URL Analysis
+Analyze a single URL.
+```bash
+bulkredirectchecker -u [single-url-to-check]
+```
 
-   ```bash
-   bulkredirectchecker --help
-   ```
+### Logging
+Enable logging to record the process details.
+```bash
+bulkredirectchecker input_file.csv -o output_file.csv -l
+```
 
-## Usage
+### Checkpointing
+Use checkpointing to resume processing from the last processed URL.
+```bash
+bulkredirectchecker input_file.csv --checkpoint
+```
 
-1. **Prepare Your List of Suspects (URLs):**
-   
-   Jot down the URLs in a CSV file, as if you were drafting a guest list for high tea.
+## Detailed Feature Explanation
 
-2. **Commence the Investigation:**
+### Checkpoint Functionality
+The checkpoint feature is designed to save the progress of URL processing. It ensures that in case of an interruption, the tool can resume processing from the last saved state. This is particularly useful for large datasets where processing is time-consuming. The tool writes the state to a `checkpoint.json` file after processing each URL. When resumed, it skips URLs already processed, ensuring efficiency and saving time.
 
-   Unleash the checker with a flourish:
+### Command Line Arguments
+- `input_file`: Specifies the CSV file containing the list of URLs to process.
+- `-o`, `--output_file`: Determines the name of the output CSV file.
+- `--checkpoint`: Activates checkpointing functionality.
+- `-u`, `--url`: Specifies a single URL for analysis.
+- `-l`, `--log`: Enables logging of the process.
 
-   ```bash
-   bulkredirectchecker input_file.csv -o output_file.csv
-   ```
+### Redirect Chain Analysis
+Each URL is analyzed for its complete redirect path. This includes detection of the redirect type, status code, and the final URL after all redirects. The tool categorizes redirects into types like HTTP to HTTPS, WWW to Non-WWW, etc.
 
-   Replace `input_file.csv` with your list, and `output_file.csv` with the name of your desired output file.
+### Canonical URL Analysis
+The tool checks the final URL of a redirect chain for canonical tags. It identifies any mismatches between the final URL and the canonical URL, highlighting potential SEO issues.
 
-3. **Revel in the Findings:**
+### Output File Structure
+The generated CSV file contains detailed information about each URL, including:
+- Redirect chain
+- Final URL
+- Status codes for each redirect
+- Canonical URL
+- Error messages (if any)
 
-   The output file will reveal all, like the final chapter of an Agatha Christie novel.
+### Flowchart Visualization
+Using `index.html`, the tool visualizes the redirect chain as a flowchart. This provides an intuitive graphical representation of the redirect path, making it easier to understand complex redirect chains.
 
 ## Contributing
-
-Should you wish to contribute to this noble endeavour, your pull requests and issues will be received with the grace of a curtsy.
+Contributions to enhance the tool's functionality or to improve its efficiency are welcome.
 
 ## License
-
-Licensed under the [MIT License](LICENSE.txt) - because even we believe some things should be free as a bird.
+This tool is available under the MIT License.
