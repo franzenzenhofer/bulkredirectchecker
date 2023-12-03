@@ -119,6 +119,18 @@
             padding: 10px;
             margin: 10px;
         }
+        #redirectChainText {
+            background-color: white;
+            color: black;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            padding: 10px;
+            border: 3px solid black;
+            border-radius: 8px;
+            width: 80%;
+            resize: vertical;
+            box-sizing: border-box;
+        }
 
     </style>
 </head>
@@ -131,7 +143,7 @@
     <hr>
 <br>
 <center>
-<textarea id="redirectChainText" rows="10" cols="50"></textarea>
+<textarea id="redirectChainText" rows="12" ></textarea>
 </center>
 <br>
     <hr>
@@ -407,10 +419,22 @@ function createParamsTable(redirectData) {
                     }
 
                     // Determine the final URL
-                    const finalUrl = redirectData['Final URL'] || redirectData['Redirected URL 7'];
+                    let finalUrl = redirectData['Final URL'];
+                    for (let i = 7; i >= 1; i--) {
+                        if (redirectData[`Redirected URL ${i}`]) {
+                            finalUrl = redirectData[`Redirected URL ${i}`];
+                            break;
+                        }
+                    }
 
-                    // Add the final URL
-                    updateRedirectChainText(`-> 200 ${finalUrl}`);
+                    // Determine the final status code
+                    const finalStatusCode = redirectData['Final Status Code'];
+
+// Determine the prefix based on the final status code
+const prefix = finalStatusCode === '200' ? '=' : '->';
+
+// Add the final URL
+updateRedirectChainText(`${prefix} ${finalStatusCode}`);
 
                     // Add the canonical URL
                     if (redirectData['Canonical URL']) {
