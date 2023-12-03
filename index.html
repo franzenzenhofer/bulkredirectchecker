@@ -118,6 +118,13 @@
 </head>
 <body>
     <div id="flowchart" class="flowchart"></div>
+    <br>
+    <br>
+    <br>
+    <br>
+    <hr>
+    <div id="tabledata" class="tabledata"></div>
+
 
     <script>
         // URL to analyze
@@ -400,8 +407,8 @@ flowchart.appendChild(canonicalNode);
             }
 
             const paramsTable = createParamsTable(redirectData);
-    flowchart.appendChild(paramsTable);
-        }
+            document.getElementById('tabledata').appendChild(paramsTable);
+                }
 
         function getStatusCodeColor(statusCode) {
             if (statusCode === '301') {
@@ -446,6 +453,17 @@ flowchart.appendChild(canonicalNode);
                 location.reload();
             }
         };
+
+    setInterval(function() {
+    // Check if the hash has changed
+    if (window.location.hash !== initialHash) {
+        // Update the hash
+        initialHash = window.location.hash;
+
+        // Force a reload
+        location.reload();
+    }
+}, 500);
     </script>
 </body>
 </html>
