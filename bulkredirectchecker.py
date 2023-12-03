@@ -50,6 +50,7 @@ PORT_CHANGED = "Port Changed"
 SUBDOMAIN_TO_SUBDOMAIN = "Subdomain to Subdomain"
 SUBDOMAIN_TO_MAIN_DOMAIN = "Subdomain to Main Domain"
 MAIN_DOMAIN_TO_SUBDOMAIN = "Main Domain to Subdomain"
+PATH_ADDED = "Path Added"
 OTHER = "Other"
 
 # Load configuration
@@ -124,6 +125,9 @@ def get_redirect_type(resp, url):
 
     # Check for path changes
     if parsed_location.path != parsed_url.path:
+        #log
+        #print(f"parsed_url.path: {parsed_url.path}")
+        #print(f"parsed_location.path: {parsed_location.path}")
         # Check for path changes
         if parsed_location.path.lower() == parsed_url.path.lower() and parsed_url.path != parsed_url.path.lower():
             redirect_types.append(TO_LOWERCASE)  # Redirect where the path changes to all lowercase
@@ -133,8 +137,11 @@ def get_redirect_type(resp, url):
             redirect_types.append(ADDING_ENDING_SLASH)  # Redirect where a trailing slash is added
         elif parsed_location.path != parsed_url.path and parsed_location.path + '/' == parsed_url.path:
             redirect_types.append(REMOVING_ENDING_SLASH)  # Redirect where a trailing slash is removed
-        elif parsed_location.scheme == parsed_url.scheme and parsed_location.netloc == parsed_url.netloc and parsed_location.path != parsed_url.path:
+        elif parsed_location.path != parsed_url.path and parsed_location.path.startswith(parsed_url.path):
+            redirect_types.append(PATH_ADDED)  # Redirect where a path is added
+        elif parsed_location.path != parsed_url.path:
             redirect_types.append(PATH_REDIRECT)  # Redirect where only the path changes
+       
 
     # Check for query changes
     if parsed_location.query != parsed_url.query:
@@ -166,6 +173,7 @@ def get_redirect_type(resp, url):
     if parsed_location.username != parsed_url.username or parsed_location.password != parsed_url.password:
         redirect_types.append(AUTH_CHANGE)  # Redirect where the username or password changes
 
+    #print(f"redirect_types: {redirect_types}")
     if redirect_types:
         if len(redirect_types) > 1:
             return ' and '.join(redirect_types)
