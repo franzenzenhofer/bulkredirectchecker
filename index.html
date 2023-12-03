@@ -337,7 +337,9 @@ function createParamsTable(redirectData) {
                 }
 
                 function createInitialNode(initialUrl) {
-                    return createNode(`Initial URL: ${sanitizeHTML(initialUrl)}`, 'initial');
+                    const node = createNode(`Initial URL: ${sanitizeHTML(initialUrl)}`, 'initial');
+                    node.style.backgroundColor = 'rgba(0, 128, 128, 0.5)';  // Light teal  // Change the color here
+                    return node;
                 }
 
                 function createRedirectNodes(redirectData) {
