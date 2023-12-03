@@ -14,25 +14,43 @@ import json
 from urllib.parse import urlencode
 import base64
 import webbrowser
+import hashlib
 
 
 
 # Constants
 HTTP_TO_HTTPS = "HTTP to HTTPS"
-NON_WWW_TO_WWW = "Non WWW to WWW"
-SUBDOMAIN_TO_WWW = "Subdomain to WWW"
-OTHER = "Other"
 HTTPS_TO_HTTP = "HTTPS to HTTP"
+NON_WWW_TO_WWW = "Non WWW to WWW"
 WWW_TO_NON_WWW = "WWW to Non-WWW"
+SUBDOMAIN_TO_WWW = "Subdomain to WWW"
 WWW_TO_SUBDOMAIN = "WWW to Subdomain"
-PATH_REDIRECT = "Path Redirect"
-DOMAIN_REDIRECT = "Domain Redirect"
-PROTOCOL_AND_DOMAIN_REDIRECT = "Protocol and Domain Redirect"
-PROTOCOL_AND_PATH_REDIRECT = "Protocol and Path Redirect"
-DOMAIN_AND_PATH_REDIRECT = "Domain and Path Redirect"
-PROTOCOL_DOMAIN_AND_PATH_REDIRECT = "Protocol, Domain, and Path Redirect"
+TO_LOWERCASE = "To Lowercase"
 CASE_CHANGE = "Case Change"
 PORT_REMOVAL = "Port Removal"
+ADDING_ENDING_SLASH = "Adding Ending Slash"
+REMOVING_ENDING_SLASH = "Removing Ending Slash"
+ADDING_QUERY_PARAM = "Adding Query Param"
+REMOVING_QUERY_PARAM = "Removing Query Param"
+CHANGING_QUERY_PARAM = "Changing Query Param"
+PATH_REDIRECT = "Path Redirect"
+DOMAIN_REDIRECT = "Domain Redirect"
+DOMAIN_AND_PATH_REDIRECT = "Domain and Path Redirect"
+PROTOCOL_REDIRECT = "Protocol Redirect"
+PORT_ADDED = "Port Added"
+HTTP_TO_HTTPS_PLUS_PORT = "HTTP to HTTPS with Port"
+ADDING_URL_PARAM = "Adding URL Param"
+REMOVING_URL_PARAM = "Removing URL Param"
+PARAM_CHANGE = "Param Change"
+FRAGMENT_ADDED = "Fragment Added"
+FRAGMENT_REMOVED = "Fragment Removed"
+FRAGMENT_CHANGED = "Fragment Changed"
+AUTH_CHANGE = "Auth Change"
+PORT_CHANGED = "Port Changed"
+SUBDOMAIN_TO_SUBDOMAIN = "Subdomain to Subdomain"
+SUBDOMAIN_TO_MAIN_DOMAIN = "Subdomain to Main Domain"
+MAIN_DOMAIN_TO_SUBDOMAIN = "Main Domain to Subdomain"
+OTHER = "Other"
 
 # Load configuration
 config = configparser.ConfigParser()
@@ -59,40 +77,102 @@ def get_redirect_type(resp, url):
     """Determines the type of redirect."""
     location = resp.headers.get('Location', '')
     if not location:
-        return OTHER
+        return OTHER  # No location header, so it's not a redirect
+
     parsed_url = urlparse(url)
     parsed_location = urlparse(location)
 
+    redirect_types = []
+
+    # Check for scheme changes
     if parsed_url.scheme == 'http' and parsed_location.scheme == 'https':
-        return HTTP_TO_HTTPS
-    elif parsed_url.scheme == 'https' and parsed_location.scheme == 'http' and not parsed_url.netloc.startswith('https:') and parsed_location.netloc.startswith('http:'):
-        return HTTPS_TO_HTTP
-    elif 'www.' in parsed_location.netloc and 'www.' not in parsed_url.netloc:
-        return NON_WWW_TO_WWW
-    elif 'www.' not in parsed_location.netloc and 'www.' in parsed_url.netloc:
-        return WWW_TO_NON_WWW
-    elif parsed_location.netloc.startswith('www.') and not parsed_url.netloc.startswith('www.'):
-        return SUBDOMAIN_TO_WWW
-    elif not parsed_location.netloc.startswith('www.') and parsed_url.netloc.startswith('www.'):
-        return WWW_TO_SUBDOMAIN
-    elif parsed_location.path.lower() != parsed_url.path.lower():
-        return CASE_CHANGE
-    elif parsed_url.port and not parsed_location.port and parsed_url.netloc.replace(':{}'.format(parsed_url.port), '') == parsed_location.netloc:
-        return PORT_REMOVAL
-    elif parsed_location.path != parsed_url.path:
-        return PATH_REDIRECT
-    elif parsed_location.netloc != parsed_url.netloc:
-        return DOMAIN_REDIRECT
-    elif parsed_location.scheme != parsed_url.scheme and parsed_location.netloc != parsed_url.netloc:
-        return PROTOCOL_AND_DOMAIN_REDIRECT
-    elif parsed_location.scheme != parsed_url.scheme and parsed_location.path != parsed_url.path:
-        return PROTOCOL_AND_PATH_REDIRECT
-    elif parsed_location.netloc != parsed_url.netloc and parsed_location.path != parsed_url.path:
-        return DOMAIN_AND_PATH_REDIRECT
-    elif parsed_location.scheme != parsed_url.scheme and parsed_location.netloc != parsed_url.netloc and parsed_location.path != parsed_url.path:
-        return PROTOCOL_DOMAIN_AND_PATH_REDIRECT
+        redirect_types.append(HTTP_TO_HTTPS)  # Redirect from HTTP to HTTPS
+    elif parsed_url.scheme == 'https' and parsed_location.scheme == 'http':
+        redirect_types.append(HTTPS_TO_HTTP)  # Redirect from HTTPS to HTTP
+
+    # Check for netloc changes
+    if parsed_location.netloc != parsed_url.netloc:
+        if 'www.' in parsed_location.netloc and 'www.' not in parsed_url.netloc:
+            redirect_types.append(NON_WWW_TO_WWW)  # Redirect from non-www to www
+        elif 'www.' not in parsed_location.netloc and 'www.' in parsed_url.netloc:
+            redirect_types.append(WWW_TO_NON_WWW)  # Redirect from www to non-www
+        elif parsed_location.netloc.startswith('www.') and not parsed_url.netloc.startswith('www.'):
+            redirect_types.append(SUBDOMAIN_TO_WWW)  # Redirect from a subdomain to www
+        elif not parsed_location.netloc.startswith('www.') and parsed_url.netloc.startswith('www.'):
+            redirect_types.append(WWW_TO_SUBDOMAIN)  # Redirect from www to a subdomain
+        elif parsed_location.scheme == parsed_url.scheme and parsed_location.netloc != parsed_url.netloc and parsed_location.path == parsed_url.path:
+            redirect_types.append(DOMAIN_REDIRECT)  # Redirect where only the domain changes
+
+        # Check for subdomain changes
+        parsed_location_subdomain = parsed_location.netloc.split('.')[0]
+        parsed_url_subdomain = parsed_url.netloc.split('.')[0]
+
+        if parsed_location_subdomain != 'www' and parsed_url_subdomain != 'www' and parsed_location_subdomain != parsed_url_subdomain:
+            redirect_types.append(SUBDOMAIN_TO_SUBDOMAIN)  # Redirect from one subdomain to another
+        elif parsed_location_subdomain != 'www' and parsed_url_subdomain == parsed_url.netloc.split('.')[-2]:
+            redirect_types.append(SUBDOMAIN_TO_MAIN_DOMAIN)  # Redirect from a subdomain to the main domain
+        elif parsed_location_subdomain == parsed_location.netloc.split('.')[-2] and parsed_url_subdomain != 'www':
+            redirect_types.append(MAIN_DOMAIN_TO_SUBDOMAIN)  # Redirect from the main domain to a subdomain
+
+    # Check for port changes
+    if not parsed_url.port and parsed_location.port and parsed_location.netloc and parsed_url.netloc and parsed_location.netloc.replace(':{}'.format(parsed_location.port), '') == parsed_url.netloc:
+        redirect_types.append(PORT_ADDED)  # Redirect where a port is added to the URL
+    elif parsed_url.port and not parsed_location.port and parsed_location.netloc and parsed_url.netloc and parsed_url.netloc.replace(':{}'.format(parsed_url.port), '') == parsed_location.netloc:
+        redirect_types.append(PORT_REMOVAL)  # Redirect where the port is removed from the URL
+    elif parsed_url.port and parsed_location.port and parsed_url.port != parsed_location.port:
+        redirect_types.append(PORT_CHANGED)  # Redirect where the port is changed
+
+    # Check for path changes
+    if parsed_location.path != parsed_url.path:
+        # Check for path changes
+        if parsed_location.path.lower() == parsed_url.path.lower() and parsed_url.path != parsed_url.path.lower():
+            redirect_types.append(TO_LOWERCASE)  # Redirect where the path changes to all lowercase
+        elif parsed_location.path.lower() == parsed_url.path.lower() and parsed_location.path != parsed_url.path:
+            redirect_types.append(CASE_CHANGE)  # Redirect where the path changes case but remains the same otherwise
+        elif parsed_location.path != parsed_url.path and parsed_location.path == parsed_url.path + '/':
+            redirect_types.append(ADDING_ENDING_SLASH)  # Redirect where a trailing slash is added
+        elif parsed_location.path != parsed_url.path and parsed_location.path + '/' == parsed_url.path:
+            redirect_types.append(REMOVING_ENDING_SLASH)  # Redirect where a trailing slash is removed
+        elif parsed_location.scheme == parsed_url.scheme and parsed_location.netloc == parsed_url.netloc and parsed_location.path != parsed_url.path:
+            redirect_types.append(PATH_REDIRECT)  # Redirect where only the path changes
+
+    # Check for query changes
+    if parsed_location.query != parsed_url.query:
+        if parsed_location.query and not parsed_url.query:
+            redirect_types.append(ADDING_QUERY_PARAM)  # Redirect where a query parameter is added
+        elif not parsed_location.query and parsed_url.query:
+            redirect_types.append(REMOVING_QUERY_PARAM)  # Redirect where a query parameter is removed
+        elif parsed_location.query != parsed_url.query:
+            redirect_types.append(CHANGING_QUERY_PARAM)  # Redirect where a query parameter value is changed
+
+    # Check for params changes
+    if parsed_location.params != parsed_url.params:
+        if parsed_location.params and not parsed_url.params:
+            redirect_types.append(ADDING_URL_PARAM)  # Redirect where a URL parameter is added
+        elif not parsed_location.params and parsed_url.params:
+            redirect_types.append(REMOVING_URL_PARAM)  # Redirect where a URL parameter is removed
+        elif parsed_location.params != parsed_url.params:
+            redirect_types.append(PARAM_CHANGE)  # Redirect where a URL parameter value is changed
+
+    # Check for fragment changes
+    if parsed_location.fragment and not parsed_url.fragment:
+        redirect_types.append(FRAGMENT_ADDED)  # Redirect where a fragment identifier is added
+    elif not parsed_location.fragment and parsed_url.fragment:
+        redirect_types.append(FRAGMENT_REMOVED)  # Redirect where the fragment identifier is removed
+    elif parsed_location.fragment != parsed_url.fragment:
+        redirect_types.append(FRAGMENT_CHANGED)  # Redirect where the fragment identifier changes
+
+    # Check for auth changes
+    if parsed_location.username != parsed_url.username or parsed_location.password != parsed_url.password:
+        redirect_types.append(AUTH_CHANGE)  # Redirect where the username or password changes
+
+    if redirect_types:
+        if len(redirect_types) > 1:
+            return ' and '.join(redirect_types)
+        else:
+            return redirect_types[0]
     else:
-        return OTHER
+        return OTHER  # Some other type of redirect
     
 session = requests.Session()
 
@@ -241,7 +321,6 @@ def create_redirect_key(result):
         initial_url = urlparse(result['redirect_chain'][0]['initial_url']) #['redirect_chain'][0]['initial_url']
         final_url = urlparse(result.get('final_url', ''))
         number_of_redirects = len(result.get('redirect_chain', []))
-        #if result['canonical_mismatch'] is true then canical status is CANONICAL_TRUE else CANONICAL_FALSE
         canonical_status = 'CANONICAL_AWAY' if result['canonical_mismatch'] else 'CANONICAL_OK'
     except Exception as e:
         logging.error(f'Error creating redirect key: {e}')
@@ -251,8 +330,11 @@ def create_redirect_key(result):
     for i in range(7):
         try:
             if i < number_of_redirects:
-                redirect_status_code = result['redirect_chain'][i].get('redirect_status_code', '')
-                redirect_type = result['redirect_chain'][i].get('redirect_type', '').replace(' ', '_')
+                redirect = result['redirect_chain'][i]
+                redirect_status_code = redirect.get('redirect_status_code', '')
+                redirect_type = redirect.get('redirect_type', '')
+                if redirect_type:  # Ensure redirect_type is not None
+                    redirect_type = redirect_type.replace(' ', '_')
                 redirect_details.append(f"{redirect_status_code}-{redirect_type}-")
             else:
                 redirect_details.append('')
@@ -266,7 +348,8 @@ def create_redirect_key(result):
         logging.error(f'Error creating redirect key: {e}')
         return ''
 
-    return redirect_key
+    return "RK_" + str(redirect_key)
+
 
 def create_url(result):
     params = {}
@@ -285,8 +368,24 @@ def create_url(result):
     except Exception as e:
         logging.error(f'Error creating Visualize Link: {e}')
         return 'N/A'
+    
+def base36encode(number):
+    """Converts an integer to a base36 string."""
+    alphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
+    base36 = ''
+    while number:
+        number, i = divmod(number, 36)
+        base36 = alphabet[i] + base36
+    return base36 or alphabet[0]
+    
+def generate_ruid(redirect_key):
+    """Generates a unique identifier for the given redirect key."""
+    md5_hash = hashlib.md5(redirect_key.encode()).hexdigest()
+    ruid = int(md5_hash, 16)
+    return base36encode(ruid)
 
 CSV_CONFIG = [
+    {"header": "RUID", "value": lambda result: generate_ruid(create_redirect_key(result))},
     {"header": "Redirect Key", "value": create_redirect_key},
     {"header": "Initial URL", "value": lambda result: result['redirect_chain'][0]['initial_url'] if result['redirect_chain'] else ''},
     {"header": "Is Redirect", "value": lambda result: 'TRUE' if result['number_of_redirects'] > 0 else 'FALSE'},

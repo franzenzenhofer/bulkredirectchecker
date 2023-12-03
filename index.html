@@ -129,6 +129,12 @@
     <br>
     <br>
     <hr>
+<br>
+<center>
+<textarea id="redirectChainText" rows="10" cols="50"></textarea>
+</center>
+<br>
+    <hr>
     <center>
     <div id="tabledata" class="tabledata"></div>
     </center>
@@ -138,6 +144,13 @@
         // URL to analyze
         // the URL this page is served from
         const url = window.location.href;
+
+        function updateRedirectChainText(text) {
+            if (typeof text === 'string' && text.trim() !== '') {
+                const textarea = document.getElementById('redirectChainText');
+                textarea.value += text + ' ';
+            }
+        }
 
         function createNode(text, className = '') {
             const node = document.createElement('div');
@@ -167,7 +180,6 @@
             } else {
                 arrow.innerHTML = `↓ <span class="status-badge" style="background-color: ${getStatusCodeColor(statusCode)}">${statusCode} ${redirectType}</span>`;
             }
-
             return arrow;
         }
 
@@ -204,7 +216,7 @@ function createParamsTable(redirectData) {
     const table = document.createElement('table');
     table.style.width = '100%';
     table.style.borderCollapse = 'collapse';
-    table.style.marginTop = '120px';  // Add 40 pixels of whitespace before the table
+    table.style.marginTop = '40px';  // Add 40 pixels of whitespace before the table
 
     for (let key in redirectData) {
         const row = document.createElement('tr');
@@ -376,6 +388,38 @@ function createParamsTable(redirectData) {
                     return null;
                 }
 
+                function visualizeRedirectsAsText(url) {
+                    const redirectData = extractRedirectData(url);
+                    const textarea = document.getElementById('redirectChainText');
+                    textarea.value = '';  // Clear the textarea
+
+                    // Add the initial URL
+                    updateRedirectChainText(redirectData['Initial URL']);
+
+                    // Add the redirects
+                    for (let i = 1; i <= 7; i++) {
+                        const redirectStatusCode = sanitizeHTML(redirectData[`Redirect Status Code ${i}`]);
+                        const redirectedUrl = sanitizeHTML(redirectData[`Redirected URL ${i}`]);
+
+                        if (redirectStatusCode && redirectedUrl) {
+                            updateRedirectChainText(`-> ${redirectStatusCode} -> ${redirectedUrl}`);
+                        }
+                    }
+
+                    // Determine the final URL
+                    const finalUrl = redirectData['Final URL'] || redirectData['Redirected URL 7'];
+
+                    // Add the final URL
+                    updateRedirectChainText(`-> 200 ${finalUrl}`);
+
+                    // Add the canonical URL
+                    if (redirectData['Canonical URL']) {
+                        const canonicalMismatch = stringToBoolean(redirectData['Canonical Mismatch']);
+                        const canonicalPrefix = canonicalMismatch ? '-> Canonical' : '= Canonical';
+                        updateRedirectChainText(`${canonicalPrefix}: ${redirectData['Canonical URL']}`);
+                    }
+                }
+
                 function visualizeRedirects(url) {
                     const redirectData = extractRedirectData(url);
                     const flowchart = document.getElementById('flowchart');
@@ -439,6 +483,7 @@ function createParamsTable(redirectData) {
                 }
 
                 visualizeRedirects(url);
+                visualizeRedirectsAsText(url);
 
                 window.onpopstate = function(event) {
                     // Check if the URL has changed
@@ -454,6 +499,7 @@ function createParamsTable(redirectData) {
 
                         // Visualize the redirects for the new URL
                         visualizeRedirects(url);
+                        visualizeRedirectsAsText(url);
                     }
                 };
 
