@@ -360,7 +360,7 @@ function createParamsTable(redirectData) {
                 }
 
                 function createFinalNode(contentType, finalRedirectedUrl, finalStatusCode) {
-                    const finalNode = createNode(`Final URL: ${sanitizeHTML(contentType)} ${sanitizeHTML(finalRedirectedUrl)}`, 'final');
+                    const finalNode = createNode(`Final URL: (${sanitizeHTML(contentType)}, Status Code: ${sanitizeHTML(finalStatusCode)}) ${sanitizeHTML(finalRedirectedUrl)}`, 'final');
                     finalNode.style.backgroundColor = getStatusCodeColor(finalStatusCode);
                     return finalNode;
                 }
@@ -399,11 +399,11 @@ function createParamsTable(redirectData) {
                     }
                     return null;
                 }
-
                 function visualizeRedirectsAsText(url) {
+                    // Extract redirect data and clear the textarea
                     const redirectData = extractRedirectData(url);
                     const textarea = document.getElementById('redirectChainText');
-                    textarea.value = '';  // Clear the textarea
+                    textarea.value = '';
 
                     // Add the initial URL
                     updateRedirectChainText(redirectData['Initial URL']);
@@ -418,7 +418,7 @@ function createParamsTable(redirectData) {
                         }
                     }
 
-                    // Determine the final URL
+                    // Determine the final URL and status code
                     let finalUrl = redirectData['Final URL'];
                     for (let i = 7; i >= 1; i--) {
                         if (redirectData[`Redirected URL ${i}`]) {
@@ -426,17 +426,13 @@ function createParamsTable(redirectData) {
                             break;
                         }
                     }
-
-                    // Determine the final status code
                     const finalStatusCode = redirectData['Final Status Code'];
 
-// Determine the prefix based on the final status code
-const prefix = finalStatusCode === '200' ? '=' : '->';
+                    // Determine the prefix based on the final status code and add the final URL
+                    const prefix = finalStatusCode === '200' ? '=' : '->';
+                    updateRedirectChainText(`${prefix} ${finalStatusCode}`);
 
-// Add the final URL
-updateRedirectChainText(`${prefix} ${finalStatusCode}`);
-
-                    // Add the canonical URL
+                    // Add the canonical URL if it exists
                     if (redirectData['Canonical URL']) {
                         const canonicalMismatch = stringToBoolean(redirectData['Canonical Mismatch']);
                         const canonicalPrefix = canonicalMismatch ? '-> Canonical' : '= Canonical';
@@ -445,60 +441,74 @@ updateRedirectChainText(`${prefix} ${finalStatusCode}`);
                 }
 
                 function visualizeRedirects(url) {
+                    // Extract redirect data and get flowchart element
                     const redirectData = extractRedirectData(url);
                     const flowchart = document.getElementById('flowchart');
 
+                    // Create and append title node
                     flowchart.appendChild(createTitle(redirectData['Redirect Key']));
 
-
+                    // Handle redirect chain warning
                     if (stringToBoolean(redirectData['Redirect Chain'])) {
-                const redirectChainWarning = createRedirectChainWarning(redirectData['Redirect Chain'], redirectData['Number of Redirects']);
-                flowchart.appendChild(redirectChainWarning);
-            }
+                        const redirectChainWarning = createRedirectChainWarning(redirectData['Redirect Chain'], redirectData['Number of Redirects']);
+                        flowchart.appendChild(redirectChainWarning);
+                    }
 
-            if (stringToBoolean(redirectData['Is Redirect'])) {
-            flowchart.appendChild(createAll301Note(redirectData['All 301']));
-        }
+                    // Handle all 301 note
+                    if (stringToBoolean(redirectData['Is Redirect'])) {
+                        flowchart.appendChild(createAll301Note(redirectData['All 301']));
+                    }
+
+                    // Create and append initial node
                     flowchart.appendChild(createInitialNode(redirectData['Initial URL']));
 
+                    // Create and append redirect nodes
                     const { nodes, finalRedirectedUrl } = createRedirectNodes(redirectData);
                     nodes.forEach(node => flowchart.appendChild(node));
 
+                    // Create and append final arrow and node
                     flowchart.appendChild(createArrow('', '', true, false));
                     flowchart.appendChild(createFinalNode(redirectData['Content Type'], finalRedirectedUrl, redirectData['Final Status Code']));
 
+                    // Handle final is AMP note
                     const finalIsAmpNote = createFinalIsAmpNote(redirectData['Final is AMP']);
                     if (finalIsAmpNote) {
                         flowchart.appendChild(finalIsAmpNote);
                     }
 
-                    // Replace the arrow between the final URL and canonical URL
-        const isCanonicalMismatch = stringToBoolean(redirectData['Canonical Mismatch']);
-        const canonicalArrow = createArrowWithLabel('', '', true, isCanonicalMismatch);
-        flowchart.appendChild(canonicalArrow);
-
-
-
-
-           // Create the canonical node with conditional red background
-           const canonicalNode = createCanonicalNode(redirectData['Canonical URL'], isCanonicalMismatch);
-        flowchart.appendChild(canonicalNode);
-
-
+                    // Handle canonical mismatch
+                    if (redirectData['Canonical URL']) {
+                        const isCanonicalMismatch = stringToBoolean(redirectData['Canonical Mismatch']);
+                        const canonicalArrow = createArrowWithLabel('', '', true, isCanonicalMismatch);
+                        flowchart.appendChild(canonicalArrow);
+                        const canonicalNode = createCanonicalNode(redirectData['Canonical URL'], isCanonicalMismatch);
+                        flowchart.appendChild(canonicalNode);
+                    } else if (redirectData['Final Status Code'] === '200' && redirectData['Content Type'] === 'text/html') {
+                        const noCanonicalNote = createNode('No canonical URL is set', 'note');
+                        noCanonicalNote.style.backgroundColor = 'var(--yellow)';
+                        noCanonicalNote.style.color = 'black';
+                        flowchart.appendChild(noCanonicalNote);
+                    }
+                    // Handle error node
                     const errorNode = createErrorNode(redirectData['Error']);
                     if (errorNode) {
                         flowchart.insertBefore(errorNode, flowchart.firstChild);
                     }
 
+                    // Create and append params table
                     const paramsTable = createParamsTable(redirectData);
                     document.getElementById('tabledata').appendChild(paramsTable);
-                        }
+                }
+
+
 
                 function getStatusCodeColor(statusCode) {
                     if (statusCode === '301') {
                         return 'var(--blue)';
                     } else if (statusCode.startsWith('3')) {
                         return 'var(--orange)';
+                    } else if (statusCode.startsWith('4')) {
+                        return 'var(--red)';
                     } else if (statusCode === '200') {
                         return 'var(--green)';
                     } else {

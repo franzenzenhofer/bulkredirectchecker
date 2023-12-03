@@ -220,6 +220,7 @@ def process_url(url, session):
     final_status_code = response.status_code
     content_type = response.headers.get('Content-Type', '').split(';')[0]
     canonical_mismatch = ''
+    canonical_url = None  # Initialize canonical_url here
 
     if final_status_code == 200 and 'text/html' in content_type:
         try:
@@ -244,8 +245,7 @@ def process_url(url, session):
                     http_canonical_link = link_value[link_value.find('<')+1:link_value.find('>')]
                     break
         
-        # Determine the canonical URL and if there is a mismatch
-        canonical_url = None
+      
         if html_canonical_link:
             canonical_url = urlparse(html_canonical_link)._replace(fragment='').geturl()  # remove fragment
         elif http_canonical_link:
