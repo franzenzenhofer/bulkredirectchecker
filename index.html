@@ -194,6 +194,12 @@ function createCanonicalNode(canonicalUrl, isCanonicalMismatch) {
     return canonicalNode;
 }
 
+function sanitizeHTML(text) {
+    let div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function createParamsTable(redirectData) {
     const table = document.createElement('table');
     table.style.width = '100%';
@@ -203,257 +209,268 @@ function createParamsTable(redirectData) {
     for (let key in redirectData) {
         const row = document.createElement('tr');
 
-        const keyCell = document.createElement('td');
-        keyCell.textContent = key;
-        keyCell.style.border = '1px solid black';
-        keyCell.style.padding = '5px';
+                const keyCell = document.createElement('td');
+                keyCell.textContent = sanitizeHTML(key);
+                keyCell.style.border = '1px solid black';
+                keyCell.style.padding = '5px';
 
-        const valueCell = document.createElement('td');
-        valueCell.textContent = redirectData[key];
-        valueCell.style.border = '1px solid black';
-        valueCell.style.padding = '5px';
+                const valueCell = document.createElement('td');
+                valueCell.textContent = sanitizeHTML(redirectData[key]);
+                valueCell.style.border = '1px solid black';
+                valueCell.style.padding = '5px';
 
-        row.appendChild(keyCell);
-        row.appendChild(valueCell);
-        table.appendChild(row);
-    }
-
-    return table;
-}
-
-function createRedirectChainWarning(isRedirect, numberOfRedirects) {
-    if (stringToBoolean(isRedirect)) {
-        const warning = document.createElement('div');
-        warning.style.backgroundColor = 'white';
-        warning.style.color = 'black';
-        warning.style.padding = '10px';
-        warning.style.margin = '10px 0';
-        warning.style.border = '2px solid lightcoral';
-        warning.style.borderRadius = '5px';
-        warning.style.fontSize = '20px';
-        warning.style.textAlign = 'center';
-        warning.innerHTML = `⚠️ <strong>Redirect Chain Detected!</strong> Number of Redirects: ${numberOfRedirects}`;
-        return warning;
-    }
-    return null;
-}
-
-        function stringToBoolean(str) {
-            if (typeof str === 'boolean') {
-                return str;
-            }
-            return str.toLowerCase() === 'true';
-        }
-
-        function getCaseInsensitiveParam(params, key) {
-    for (let paramKey of params.keys()) {
-        if (paramKey.toLowerCase() === key.toLowerCase()) {
-            return params.get(paramKey);
-        }
-    }
-    return null;
-}
-
-        function extractRedirectData(url) {
-            let paramsString = url.split('#')[1];
-
-// Check if paramsString looks like a base64 encoded string
-if (/^[a-zA-Z0-9+/]*={0,2}$/.test(paramsString)) {
-    try {
-        paramsString = atob(paramsString);
-    } catch (e) {
-        console.error('Error decoding base64 params:', e);
-    }
-}
-
-let params = new URLSearchParams(paramsString);
-            const redirectData = {
-                "Redirect Key": getCaseInsensitiveParam(params, 'Redirect Key'),
-                "Initial URL": getCaseInsensitiveParam(params, 'Initial URL'),
-                "Is Redirect": getCaseInsensitiveParam(params, 'Is Redirect'),
-                "Redirect Chain": getCaseInsensitiveParam(params, 'Redirect Chain'),
-                "Canonical Mismatch": getCaseInsensitiveParam(params, 'Canonical Mismatch'),
-                "All 301": getCaseInsensitiveParam(params, 'All 301'),
-                "Multi Domain": getCaseInsensitiveParam(params, 'Multi Domain'),
-                "Start Domain": getCaseInsensitiveParam(params, 'Start Domain'),
-                "Final Domain": getCaseInsensitiveParam(params, 'Final Domain'),
-                "Number of Redirects": getCaseInsensitiveParam(params, 'Number of Redirects'),
-                "Final Status Code": getCaseInsensitiveParam(params, 'Final Status Code'),
-                "Final is AMP": getCaseInsensitiveParam(params, 'Final is AMP'),
-                "Canonical URL": getCaseInsensitiveParam(params, 'Canonical URL'),
-                "Content Type": getCaseInsensitiveParam(params, 'Content Type'),
-                "Error": getCaseInsensitiveParam(params, 'Error')
-            };
-
-            for (let i = 1; i <= 7; i++) {
-                redirectData[`Redirect Status Code ${i}`] = getCaseInsensitiveParam(params, `Redirect Status Code ${i}`);
-                redirectData[`Redirect Type ${i}`] = getCaseInsensitiveParam(params, `Redirect Type ${i}`);
-                redirectData[`Redirected URL ${i}`] = getCaseInsensitiveParam(params, `Redirected URL ${i}`);
+                row.appendChild(keyCell);
+                row.appendChild(valueCell);
+                table.appendChild(row);
             }
 
-            return redirectData;
-        }
-        function createTitle(redirectKey) {
-            const title = document.createElement('h1');
-            title.textContent = `Redirect Key: ${redirectKey}`;
-            return title;
+            return table;
         }
 
-        function createAll301Note(all301) {
-            const all301Note = document.createElement('p');
-            all301Note.className = 'all301Note';
-            all301Note.textContent = all301 === 'TRUE' ? 'All redirects are 301' : 'Non 301 redirect detected';
-            return all301Note;
-        }
-
-        function createInitialNode(initialUrl) {
-            return createNode(`Initial URL: ${initialUrl}`, 'initial');
-        }
-
-        function createRedirectNodes(redirectData) {
-            let finalRedirectedUrl = '';
-            const nodes = [];
-            for (let i = 1; i <= 7; i++) {
-                const redirectStatusCode = redirectData[`Redirect Status Code ${i}`];
-                const redirectType = redirectData[`Redirect Type ${i}`];
-                const redirectedUrl = redirectData[`Redirected URL ${i}`];
-
-                if (redirectStatusCode && redirectType && redirectedUrl) {
-                    const redirectNode = createNode(`Redirect ${i} (Code: ${redirectStatusCode}, Type: ${redirectType}): ${redirectedUrl}`);
-                    redirectNode.style.backgroundColor = getStatusCodeColor(redirectStatusCode);
-                    const arrow = createArrow(redirectType, redirectStatusCode, false, false);
-                    nodes.push(arrow, redirectNode);
-                    finalRedirectedUrl = redirectedUrl;
-                }
-            }
-            return { nodes, finalRedirectedUrl };
-        }
-
-        function createFinalNode(contentType, finalRedirectedUrl, finalStatusCode) {
-            const finalNode = createNode(`Final URL: ${contentType} ${finalRedirectedUrl}`, 'final');
-            finalNode.style.backgroundColor = getStatusCodeColor(finalStatusCode);
-            return finalNode;
-        }
-
-        function createCanonicalMismatchWarning(canonicalMismatch) {
-            if (stringToBoolean(canonicalMismatch)) {
-                const warning = document.createElement('p');
-                warning.innerHTML = '⚠️ Canonical Mismatch';
+        function createRedirectChainWarning(isRedirect, numberOfRedirects) {
+            if (stringToBoolean(isRedirect)) {
+                const warning = document.createElement('div');
+                warning.style.backgroundColor = 'white';
+                warning.style.color = 'black';
+                warning.style.padding = '10px';
+                warning.style.margin = '10px 0';
+                warning.style.border = '2px solid lightcoral';
+                warning.style.borderRadius = '5px';
+                warning.style.fontSize = '20px';
+                warning.style.textAlign = 'center';
+                warning.innerHTML = `⚠️ <strong>Redirect Chain Detected!</strong> Number of Redirects: ${sanitizeHTML(numberOfRedirects)}`;
                 return warning;
             }
             return null;
         }
 
-        function createFinalIsAmpNote(finalIsAmp) {
-            if (stringToBoolean(finalIsAmp)) {
-                const note = document.createElement('p');
-                note.innerHTML = '⚡ Final URL is AMP 😕';  // Add :/ emoji at the end of the message
-                note.style.backgroundColor = 'white';  // Set the background color to white
-                note.style.color = 'black';  // Set the text color to black
-                note.style.border = '8px solid orange';  // Set the border to orange
-                note.style.borderRadius = '10px';  // Round the corners
-                note.style.padding = '10px';  // Add some padding
-                return note;
+                function stringToBoolean(str) {
+                    if (typeof str === 'boolean') {
+                        return str;
+                    }
+                    return str.toLowerCase() === 'true';
+                }
+
+                function getCaseInsensitiveParam(params, key) {
+            for (let paramKey of params.keys()) {
+                if (paramKey.toLowerCase() === key.toLowerCase()) {
+                    return sanitizeHTML(params.get(paramKey));
+                }
             }
             return null;
         }
 
+                function extractRedirectData(url) {
+                    let paramsString = url.split('#')[1];
 
-
-        function createErrorNode(error) {
-            if (error) {
-                const errorNode = document.createElement('div');
-                errorNode.className = 'error';
-                errorNode.textContent = `Error: ${error}`;
-                return errorNode;
-            }
-            return null;
-        }
-
-        function visualizeRedirects(url) {
-            const redirectData = extractRedirectData(url);
-            const flowchart = document.getElementById('flowchart');
-
-            flowchart.appendChild(createTitle(redirectData['Redirect Key']));
-
-
-            if (stringToBoolean(redirectData['Redirect Chain'])) {
-        const redirectChainWarning = createRedirectChainWarning(redirectData['Redirect Chain'], redirectData['Number of Redirects']);
-        flowchart.appendChild(redirectChainWarning);
-    }
-
-    if (stringToBoolean(redirectData['Is Redirect'])) {
-    flowchart.appendChild(createAll301Note(redirectData['All 301']));
-}
-            flowchart.appendChild(createInitialNode(redirectData['Initial URL']));
-
-            const { nodes, finalRedirectedUrl } = createRedirectNodes(redirectData);
-            nodes.forEach(node => flowchart.appendChild(node));
-
-            flowchart.appendChild(createArrow('', '', true, false));
-            flowchart.appendChild(createFinalNode(redirectData['Content Type'], finalRedirectedUrl, redirectData['Final Status Code']));
-
-            const finalIsAmpNote = createFinalIsAmpNote(redirectData['Final is AMP']);
-            if (finalIsAmpNote) {
-                flowchart.appendChild(finalIsAmpNote);
-            }
-
-            // Replace the arrow between the final URL and canonical URL
-const isCanonicalMismatch = stringToBoolean(redirectData['Canonical Mismatch']);
-const canonicalArrow = createArrowWithLabel('', '', true, isCanonicalMismatch);
-flowchart.appendChild(canonicalArrow);
-
-
-
-
-   // Create the canonical node with conditional red background
-   const canonicalNode = createCanonicalNode(redirectData['Canonical URL'], isCanonicalMismatch);
-flowchart.appendChild(canonicalNode);
-
-
-            const errorNode = createErrorNode(redirectData['Error']);
-            if (errorNode) {
-                flowchart.insertBefore(errorNode, flowchart.firstChild);
-            }
-
-            const paramsTable = createParamsTable(redirectData);
-            document.getElementById('tabledata').appendChild(paramsTable);
-                }
-
-        function getStatusCodeColor(statusCode) {
-            if (statusCode === '301') {
-                return 'var(--blue)';
-            } else if (statusCode.startsWith('3')) {
-                return 'var(--orange)';
-            } else if (statusCode === '200') {
-                return 'var(--green)';
-            } else {
-                return 'var(--grey)';
+        // Check if paramsString looks like a base64 encoded string
+        if (/^[a-zA-Z0-9+/]*={0,2}$/.test(paramsString)) {
+            try {
+                paramsString = atob(paramsString);
+            } catch (e) {
+                console.error('Error decoding base64 params:', e);
             }
         }
 
-        visualizeRedirects(url);
+        let params = new URLSearchParams(paramsString);
+                    const redirectData = {
+                        "Redirect Key": sanitizeHTML(getCaseInsensitiveParam(params, 'Redirect Key')),
+                        "Initial URL": sanitizeHTML(getCaseInsensitiveParam(params, 'Initial URL')),
+                        "Is Redirect": sanitizeHTML(getCaseInsensitiveParam(params, 'Is Redirect')),
+                        "Redirect Chain": sanitizeHTML(getCaseInsensitiveParam(params, 'Redirect Chain')),
+                        "Canonical Mismatch": sanitizeHTML(getCaseInsensitiveParam(params, 'Canonical Mismatch')),
+                        "All 301": sanitizeHTML(getCaseInsensitiveParam(params, 'All 301')),
+                        "Multi Domain": sanitizeHTML(getCaseInsensitiveParam(params, 'Multi Domain')),
+                        "Start Domain": sanitizeHTML(getCaseInsensitiveParam(params, 'Start Domain')),
+                        "Final Domain": sanitizeHTML(getCaseInsensitiveParam(params, 'Final Domain')),
+                        "Number of Redirects": sanitizeHTML(getCaseInsensitiveParam(params, 'Number of Redirects')),
+                        "Final Status Code": sanitizeHTML(getCaseInsensitiveParam(params, 'Final Status Code')),
+                        "Final is AMP": sanitizeHTML(getCaseInsensitiveParam(params, 'Final is AMP')),
+                        "Canonical URL": sanitizeHTML(getCaseInsensitiveParam(params, 'Canonical URL')),
+                        "Content Type": sanitizeHTML(getCaseInsensitiveParam(params, 'Content Type')),
+                        "Error": sanitizeHTML(getCaseInsensitiveParam(params, 'Error'))
+                    };
 
-        window.onpopstate = function(event) {
-            // Check if the URL has changed
-            if (window.location.href !== url) {
-                // Update the URL
-                url = window.location.href;
+                    for (let i = 1; i <= 7; i++) {
+                        redirectData[`Redirect Status Code ${i}`] = sanitizeHTML(getCaseInsensitiveParam(params, `Redirect Status Code ${i}`));
+                        redirectData[`Redirect Type ${i}`] = sanitizeHTML(getCaseInsensitiveParam(params, `Redirect Type ${i}`));
+                        redirectData[`Redirected URL ${i}`] = sanitizeHTML(getCaseInsensitiveParam(params, `Redirected URL ${i}`));
+                    }
 
-                // Clear the flowchart
-                const flowchart = document.getElementById('flowchart');
-                while (flowchart.firstChild) {
-                    flowchart.removeChild(flowchart.firstChild);
+                    return redirectData;
+                }
+                function createTitle(redirectKey) {
+                    const title = document.createElement('h1');
+                    title.textContent = `Redirect Key: ${sanitizeHTML(redirectKey)}`;
+                    return title;
                 }
 
-                // Visualize the redirects for the new URL
+                function createAll301Note(all301) {
+                    const all301Note = document.createElement('p');
+                    all301Note.className = 'all301Note';
+                    all301Note.textContent = all301 === 'TRUE' ? 'All redirects are 301' : 'Non 301 redirect detected';
+                    return all301Note;
+                }
+
+                function createInitialNode(initialUrl) {
+                    return createNode(`Initial URL: ${sanitizeHTML(initialUrl)}`, 'initial');
+                }
+
+                function createRedirectNodes(redirectData) {
+                    let finalRedirectedUrl = '';
+                    const nodes = [];
+                    for (let i = 1; i <= 7; i++) {
+                        const redirectStatusCode = sanitizeHTML(redirectData[`Redirect Status Code ${i}`]);
+                        const redirectType = sanitizeHTML(redirectData[`Redirect Type ${i}`]);
+                        const redirectedUrl = sanitizeHTML(redirectData[`Redirected URL ${i}`]);
+
+                        if (redirectStatusCode && redirectType && redirectedUrl) {
+                            const redirectNode = createNode(`Redirect ${i} (Code: ${redirectStatusCode}, Type: ${redirectType}): ${redirectedUrl}`);
+                            redirectNode.style.backgroundColor = getStatusCodeColor(redirectStatusCode);
+                            const arrow = createArrow(redirectType, redirectStatusCode, false, false);
+                            nodes.push(arrow, redirectNode);
+                            finalRedirectedUrl = redirectedUrl;
+                        }
+                    }
+                    return { nodes, finalRedirectedUrl };
+                }
+
+                function createFinalNode(contentType, finalRedirectedUrl, finalStatusCode) {
+                    const finalNode = createNode(`Final URL: ${sanitizeHTML(contentType)} ${sanitizeHTML(finalRedirectedUrl)}`, 'final');
+                    finalNode.style.backgroundColor = getStatusCodeColor(finalStatusCode);
+                    return finalNode;
+                }
+
+                function createCanonicalMismatchWarning(canonicalMismatch) {
+                    if (stringToBoolean(canonicalMismatch)) {
+                        const warning = document.createElement('p');
+                        warning.innerHTML = '⚠️ Canonical Mismatch';
+                        return warning;
+                    }
+                    return null;
+                }
+
+                function createFinalIsAmpNote(finalIsAmp) {
+                    if (stringToBoolean(finalIsAmp)) {
+                        const note = document.createElement('p');
+                        note.innerHTML = '⚡ Final URL is AMP 😕';  // Add :/ emoji at the end of the message
+                        note.style.backgroundColor = 'white';  // Set the background color to white
+                        note.style.color = 'black';  // Set the text color to black
+                        note.style.border = '8px solid orange';  // Set the border to orange
+                        note.style.borderRadius = '10px';  // Round the corners
+                        note.style.padding = '10px';  // Add some padding
+                        return note;
+                    }
+                    return null;
+                }
+
+
+
+                function createErrorNode(error) {
+                    if (error) {
+                        const errorNode = document.createElement('div');
+                        errorNode.className = 'error';
+                        errorNode.textContent = `Error: ${sanitizeHTML(error)}`;
+                        return errorNode;
+                    }
+                    return null;
+                }
+
+                function visualizeRedirects(url) {
+                    const redirectData = extractRedirectData(url);
+                    const flowchart = document.getElementById('flowchart');
+
+                    flowchart.appendChild(createTitle(redirectData['Redirect Key']));
+
+
+                    if (stringToBoolean(redirectData['Redirect Chain'])) {
+                const redirectChainWarning = createRedirectChainWarning(redirectData['Redirect Chain'], redirectData['Number of Redirects']);
+                flowchart.appendChild(redirectChainWarning);
+            }
+
+            if (stringToBoolean(redirectData['Is Redirect'])) {
+            flowchart.appendChild(createAll301Note(redirectData['All 301']));
+        }
+                    flowchart.appendChild(createInitialNode(redirectData['Initial URL']));
+
+                    const { nodes, finalRedirectedUrl } = createRedirectNodes(redirectData);
+                    nodes.forEach(node => flowchart.appendChild(node));
+
+                    flowchart.appendChild(createArrow('', '', true, false));
+                    flowchart.appendChild(createFinalNode(redirectData['Content Type'], finalRedirectedUrl, redirectData['Final Status Code']));
+
+                    const finalIsAmpNote = createFinalIsAmpNote(redirectData['Final is AMP']);
+                    if (finalIsAmpNote) {
+                        flowchart.appendChild(finalIsAmpNote);
+                    }
+
+                    // Replace the arrow between the final URL and canonical URL
+        const isCanonicalMismatch = stringToBoolean(redirectData['Canonical Mismatch']);
+        const canonicalArrow = createArrowWithLabel('', '', true, isCanonicalMismatch);
+        flowchart.appendChild(canonicalArrow);
+
+
+
+
+           // Create the canonical node with conditional red background
+           const canonicalNode = createCanonicalNode(redirectData['Canonical URL'], isCanonicalMismatch);
+        flowchart.appendChild(canonicalNode);
+
+
+                    const errorNode = createErrorNode(redirectData['Error']);
+                    if (errorNode) {
+                        flowchart.insertBefore(errorNode, flowchart.firstChild);
+                    }
+
+                    const paramsTable = createParamsTable(redirectData);
+                    document.getElementById('tabledata').appendChild(paramsTable);
+                        }
+
+                function getStatusCodeColor(statusCode) {
+                    if (statusCode === '301') {
+                        return 'var(--blue)';
+                    } else if (statusCode.startsWith('3')) {
+                        return 'var(--orange)';
+                    } else if (statusCode === '200') {
+                        return 'var(--green)';
+                    } else {
+                        return 'var(--grey)';
+                    }
+                }
+
                 visualizeRedirects(url);
-            }
-        };
 
-        let initialHash = window.location.hash;
+                window.onpopstate = function(event) {
+                    // Check if the URL has changed
+                    if (window.location.href !== url) {
+                        // Update the URL
+                        url = window.location.href;
 
-        window.onhashchange = function(event) {
+                        // Clear the flowchart
+                        const flowchart = document.getElementById('flowchart');
+                        while (flowchart.firstChild) {
+                            flowchart.removeChild(flowchart.firstChild);
+                        }
+
+                        // Visualize the redirects for the new URL
+                        visualizeRedirects(url);
+                    }
+                };
+
+                let initialHash = window.location.hash;
+
+                window.onhashchange = function(event) {
+                    // Check if the hash has changed
+                    if (window.location.hash !== initialHash) {
+                        // Update the hash
+                        initialHash = window.location.hash;
+
+                        // Force a reload
+                        location.reload();
+                    }
+                };
+
+            setInterval(function() {
             // Check if the hash has changed
             if (window.location.hash !== initialHash) {
                 // Update the hash
@@ -462,18 +479,7 @@ flowchart.appendChild(canonicalNode);
                 // Force a reload
                 location.reload();
             }
-        };
-
-    setInterval(function() {
-    // Check if the hash has changed
-    if (window.location.hash !== initialHash) {
-        // Update the hash
-        initialHash = window.location.hash;
-
-        // Force a reload
-        location.reload();
-    }
-}, 500);
-    </script>
-</body>
-</html>
+        }, 500);
+            </script>
+        </body>
+        </html>
