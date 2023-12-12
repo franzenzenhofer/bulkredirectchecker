@@ -92,28 +92,29 @@ def get_redirect_type(resp, url):
         redirect_types.append(HTTPS_TO_HTTP)  # Redirect from HTTPS to HTTP
 
     # Check for netloc changes
-    if parsed_location.netloc != parsed_url.netloc:
-        if 'www.' in parsed_location.netloc and 'www.' not in parsed_url.netloc:
-            redirect_types.append(NON_WWW_TO_WWW)  # Redirect from non-www to www
-        elif 'www.' not in parsed_location.netloc and 'www.' in parsed_url.netloc:
-            redirect_types.append(WWW_TO_NON_WWW)  # Redirect from www to non-www
-        elif parsed_location.netloc.startswith('www.') and not parsed_url.netloc.startswith('www.'):
-            redirect_types.append(SUBDOMAIN_TO_WWW)  # Redirect from a subdomain to www
-        elif not parsed_location.netloc.startswith('www.') and parsed_url.netloc.startswith('www.'):
-            redirect_types.append(WWW_TO_SUBDOMAIN)  # Redirect from www to a subdomain
-        elif parsed_location.scheme == parsed_url.scheme and parsed_location.netloc != parsed_url.netloc and parsed_location.path == parsed_url.path:
-            redirect_types.append(DOMAIN_REDIRECT)  # Redirect where only the domain changes
+    if parsed_location.netloc:
+      if parsed_location.netloc != parsed_url.netloc:
+          if 'www.' in parsed_location.netloc and 'www.' not in parsed_url.netloc:
+              redirect_types.append(NON_WWW_TO_WWW)  # Redirect from non-www to www
+          elif 'www.' not in parsed_location.netloc and 'www.' in parsed_url.netloc:
+              redirect_types.append(WWW_TO_NON_WWW)  # Redirect from www to non-www
+          elif parsed_location.netloc.startswith('www.') and not parsed_url.netloc.startswith('www.'):
+              redirect_types.append(SUBDOMAIN_TO_WWW)  # Redirect from a subdomain to www
+          elif not parsed_location.netloc.startswith('www.') and parsed_url.netloc.startswith('www.'):
+              redirect_types.append(WWW_TO_SUBDOMAIN)  # Redirect from www to a subdomain
+          elif parsed_location.scheme == parsed_url.scheme and parsed_location.netloc != parsed_url.netloc and parsed_location.path == parsed_url.path:
+              redirect_types.append(DOMAIN_REDIRECT)  # Redirect where only the domain changes
 
-        # Check for subdomain changes
-        parsed_location_subdomain = parsed_location.netloc.split('.')[0]
-        parsed_url_subdomain = parsed_url.netloc.split('.')[0]
+          # Check for subdomain changes
+          parsed_location_subdomain = parsed_location.netloc.split('.')[0]
+          parsed_url_subdomain = parsed_url.netloc.split('.')[0]
 
-        if parsed_location_subdomain != 'www' and parsed_url_subdomain != 'www' and parsed_location_subdomain != parsed_url_subdomain:
-            redirect_types.append(SUBDOMAIN_TO_SUBDOMAIN)  # Redirect from one subdomain to another
-        elif parsed_location_subdomain != 'www' and parsed_url_subdomain == parsed_url.netloc.split('.')[-2]:
-            redirect_types.append(SUBDOMAIN_TO_MAIN_DOMAIN)  # Redirect from a subdomain to the main domain
-        elif parsed_location_subdomain == parsed_location.netloc.split('.')[-2] and parsed_url_subdomain != 'www':
-            redirect_types.append(MAIN_DOMAIN_TO_SUBDOMAIN)  # Redirect from the main domain to a subdomain
+          if parsed_location_subdomain != 'www' and parsed_url_subdomain != 'www' and parsed_location_subdomain != parsed_url_subdomain:
+              redirect_types.append(SUBDOMAIN_TO_SUBDOMAIN)  # Redirect from one subdomain to another
+          elif parsed_location_subdomain != 'www' and parsed_url_subdomain == parsed_url.netloc.split('.')[-2]:
+              redirect_types.append(SUBDOMAIN_TO_MAIN_DOMAIN)  # Redirect from a subdomain to the main domain
+          elif parsed_location_subdomain == parsed_location.netloc.split('.')[-2] and parsed_url_subdomain != 'www':
+              redirect_types.append(MAIN_DOMAIN_TO_SUBDOMAIN)  # Redirect from the main domain to a subdomain
 
     # Check for port changes
     if not parsed_url.port and parsed_location.port and parsed_location.netloc and parsed_url.netloc and parsed_location.netloc.replace(':{}'.format(parsed_location.port), '') == parsed_url.netloc:
